@@ -25,7 +25,7 @@ def scan_sheet():
         return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # إرسال الصورة إلى نموذج Gemini مع توجيه دقيق لاستخراج الدرجة والإجابات
+        # إرسال الصورة إلى النموذج الأحدث لاستخراج النتيجة
         prompt = """
         هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
         1. استخرج رقم الطالب (إن وجد).
@@ -44,7 +44,7 @@ def scan_sheet():
         """
 
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # نموذج سريع ودقيق لتحليل الصور
+            model='gemini-3.8-flash', # تم التحديث إلى النموذج الجديد المطلوب
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
