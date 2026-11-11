@@ -1,51 +1,49 @@
 from flask import Flask, request, jsonify
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 import os
 import json
+from PIL import Image
+import io
 
 app = Flask(__name__)
 
-# تهيئة العميل باستخدام المفتاح المعتمد من البيئة (Environment Variables)
-# لضمان عدم تسريب المفاتيح داخل الكود البرمجي
+# تهيئة المفتاح للذكاء الاصطناعي
 api_key = os.environ.get("GEMINI_API_KEY")
-if not api_key:
-    raise ValueError("GEMINI_API_KEY environment variable is missing!")
+if api_key:
+    genai.configure(api_key=api_key)
 
-client = genai.Client(api_key=api_key)
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({"status": "active", "message": "OMR Production Server is running successfully!"})
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """ نقطة فحص حالة المنصة للتأكد من عمل السيرفر بنجاح """
-    return jsonify({
-        "status": "active",
-        "platform": "Google Cloud Production Ready",
-        "version": "1.0.0"
-    }), 200
+@app.route('/scan', methods=['POST'])
+def scan_sheet():
+    if not api_key:
+        return jsonify({'error': 'مفتاح GEMINI_API_KEY غير مُعرف في إعدادات السيرفر'}), 500
 
-@app.route('/scan-exam', methods=['POST'])
-def scan_exam_sheet():
-    """ نقطة النهاية الأساسية لاستلام ورقة الامتحان وتحليلها """
     if 'image' not in request.files:
-        return jsonify({'error': 'لم يتم إرسال ملف الصورة'}), 400
+        return jsonify({'error': 'لم يتم إرسال أي صورة'}), 400
     
     file = request.files['image']
     image_bytes = file.read()
     
     if not image_bytes:
-        return jsonify({'error': 'ملف الصورة فارغ'}), 400
+        return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # التوجيه الهندسي المتقدم للنموذج لاستخراج النتيجة بدقة معمارية
-        prompt = """
-        أنت نظام ذكاء اصطناعي متخصّص في تصحيح أوراق الامتحانات الآلية (OMR).
-        قم بتحليل صورة ورقة الإجابة المرفقة بدقة بالغة واستخرج البيانات التالية:
-        1. رقم الطالب (Student ID).
-        2. عدد الإجابات الصحيحة.
-        3. الدرجة النهائية من 50.
-        4. التقدير العام (ممتاز، جيد جداً، جيد، راسب).
+        # قراءة الصورة بالصيغة المدعومة
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # استدعاء النموذج القياسي المستقر السريع
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
-        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص إضافية:
+        prompt = """
+        هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
+        1. استخرج رقم الطالب (Student ID).
+        2. احسب عدد الإجابات الصحيحة والدرجة النهائية من 50.
+        3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
+        
+        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص أو علامات إضافية:
         {
           "status": "success",
           "student_id": "رقم الطالب المستخرج",
@@ -56,20 +54,10 @@ def scan_exam_sheet():
         }
         """
 
-        # استدعاء أحدث النماذج المعتمَدَة من منصة Google AI
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/jpeg',
-                ),
-                prompt
-            ]
-        )
-
-        # تنظيف استجابة الـ Model واستخراج صيغة الـ JSON بدقة
+        response = model.generate_content([image, prompt])
         text_response = response.text.strip()
+        
+        # تنظيف الرد واستخراج الـ JSON
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
         elif text_response.startswith("```"):
@@ -79,7 +67,7 @@ def scan_exam_sheet():
         return jsonify(result_json), 200
 
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ داخلي أثناء المعالجة: {str(e)}'}), 500
+        return jsonify({'error': f'خطأ في المعالجة: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
