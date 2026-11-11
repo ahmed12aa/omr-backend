@@ -1,13 +1,17 @@
 from flask import Flask, request, jsonify
-import cv2
-import numpy as np
+from google import genai
+from google.genai import types
 import os
+import json
 
 app = Flask(__name__)
 
+# تهيئة عميل Google GenAI باستخدام المفتاح من متغيرات البيئة
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"status": "active", "message": "OMR Backend with OpenCV is running!"})
+    return jsonify({"status": "active", "message": "OMR Backend with Google AI is running!"})
 
 @app.route('/scan', methods=['POST'])
 def scan_sheet():
@@ -15,45 +19,53 @@ def scan_sheet():
         return jsonify({'error': 'لم يتم إرسال أي صورة'}), 400
     
     file = request.files['image']
-    npimg = np.frombuffer(file.read(), np.uint8)
-    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+    image_bytes = file.read()
     
-    if img is None:
-        return jsonify({'error': 'صيغة الصورة غير صالحة'}), 400
+    if not image_bytes:
+        return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # 1. تحويل الصورة إلى الأبيض والأسود (Grayscale)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # إرسال الصورة إلى نموذج Gemini مع توجيه دقيق لاستخراج الدرجة والإجابات
+        prompt = """
+        هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
+        1. استخرج رقم الطالب (إن وجد).
+        2. احسب عدد الإجابات الصحيحة والدرجة الكلية من 50.
+        3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
         
-        # 2. تطبيق فلتر لتقليل التشويش
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        
-        # 3. تحويل الصورة إلى ثنائية (Binary Thresholding) لإبراز التظلليل
-        _, thresh = cv2.threshold(blurred, 150, 255, cv2.THRESH_BINARY_INV)
-
-        # 4. تحليل مبدئي لنسبة التظلليل في الصورة
-        total_pixels = thresh.size
-        dark_pixels = cv2.countNonZero(thresh)
-        shading_ratio = dark_pixels / total_pixels
-
-        # حساب النتيجة بناءً على التحليل الفعلي
-        calculated_score = int(min(max(shading_ratio * 300, 40), 100))
-        
-        result = {
-            "status": "success",
-            "message": "تم تحليل ورقة الامتحان بنجاح عبر OpenCV",
-            "image_shape": f"{img.shape[1]}x{img.shape[0]}",
-            "student_id": "98765432",
-            "correct_answers": int(calculated_score / 2),
-            "total_questions": 50,
-            "score": calculated_score,
-            "evaluation": "ممتاز" if calculated_score >= 80 else "جيد جداً"
+        يجب أن تكون الإجابة بصيغة JSON صالحة حصرياً بالشكل التالي بدون أي نصوص إضافية خارج الـ JSON:
+        {
+          "status": "success",
+          "student_id": "رقم الطالب المستخرج أو افتراضي",
+          "correct_answers": عدد صحيح,
+          "total_questions": 50,
+          "score": الدرجة من 100,
+          "evaluation": "التقييم"
         }
-        
-        return jsonify(result), 200
+        """
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash', # نموذج سريع ودقيق لتحليل الصور
+            contents=[
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type='image/jpeg',
+                ),
+                prompt
+            ]
+        )
+
+        # تنظيف الرد واستخراج الـ JSON
+        text_response = response.text.strip()
+        if text_response.startswith("```json"):
+            text_response = text_response[7:-3].strip()
+        elif text_response.startswith("```"):
+            text_response = text_response[3:-3].strip()
+
+        result_json = json.loads(text_response)
+        return jsonify(result_json), 200
 
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ أثناء معالجة الصورة: {str(e)}'}), 500
+        return jsonify({'error': f'حدث خطأ أثناء تحليل الذكاء الاصطناعي: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
