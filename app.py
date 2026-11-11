@@ -6,43 +6,57 @@ import json
 
 app = Flask(__name__)
 
-# تهيئة العميل بالطريقة الحديثة
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# تهيئة العميل باستخدام المفتاح المعتمد من البيئة (Environment Variables)
+# لضمان عدم تسريب المفاتيح داخل الكود البرمجي
+api_key = os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("GEMINI_API_KEY environment variable is missing!")
 
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({"status": "active", "message": "OMR Modern Backend is running successfully!"})
+client = genai.Client(api_key=api_key)
 
-@app.route('/scan', methods=['POST'])
-def scan_sheet():
+@app.route('/health', methods=['GET'])
+def health_check():
+    """ نقطة فحص حالة المنصة للتأكد من عمل السيرفر بنجاح """
+    return jsonify({
+        "status": "active",
+        "platform": "Google Cloud Production Ready",
+        "version": "1.0.0"
+    }), 200
+
+@app.route('/scan-exam', methods=['POST'])
+def scan_exam_sheet():
+    """ نقطة النهاية الأساسية لاستلام ورقة الامتحان وتحليلها """
     if 'image' not in request.files:
-        return jsonify({'error': 'لم يتم إرسال أي صورة'}), 400
+        return jsonify({'error': 'لم يتم إرسال ملف الصورة'}), 400
     
     file = request.files['image']
     image_bytes = file.read()
     
     if not image_bytes:
-        return jsonify({'error': 'الصورة فارغة'}), 400
+        return jsonify({'error': 'ملف الصورة فارغ'}), 400
 
     try:
+        # التوجيه الهندسي المتقدم للنموذج لاستخراج النتيجة بدقة معمارية
         prompt = """
-        هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
-        1. استخرج رقم الطالب (إن وجد).
-        2. احسب عدد الإجابات الصحيحة والدرجة الكلية من 50.
-        3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
+        أنت نظام ذكاء اصطناعي متخصّص في تصحيح أوراق الامتحانات الآلية (OMR).
+        قم بتحليل صورة ورقة الإجابة المرفقة بدقة بالغة واستخرج البيانات التالية:
+        1. رقم الطالب (Student ID).
+        2. عدد الإجابات الصحيحة.
+        3. الدرجة النهائية من 50.
+        4. التقدير العام (ممتاز، جيد جداً، جيد، راسب).
         
-        أجب حصرياً بصيغة JSON صحيحة بالهيكل التالي فقط بدون أي نصوص أو علامات تفتيح إضافية:
+        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص إضافية:
         {
           "status": "success",
-          "student_id": "20261001",
-          "correct_answers": 45,
+          "student_id": "رقم الطالب المستخرج",
+          "correct_answers": عدد صحيح,
           "total_questions": 50,
-          "score": 90,
-          "evaluation": "ممتاز"
+          "score": الدرجة,
+          "evaluation": "التقدير"
         }
         """
 
-        # استخدام النموذج الأحدث والسريع للمعالجة
+        # استدعاء أحدث النماذج المعتمَدَة من منصة Google AI
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
@@ -54,6 +68,7 @@ def scan_sheet():
             ]
         )
 
+        # تنظيف استجابة الـ Model واستخراج صيغة الـ JSON بدقة
         text_response = response.text.strip()
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
@@ -64,8 +79,8 @@ def scan_sheet():
         return jsonify(result_json), 200
 
     except Exception as e:
-        return jsonify({'error': f'خطأ في المعالجة: {str(e)}'}), 500
+        return jsonify({'error': f'حدث خطأ داخلي أثناء المعالجة: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
