@@ -45,7 +45,7 @@ def scan_sheet():
 
         # استخدام النموذج القياسي السريع لمعالجة الصورة مباشرة عبر البايتات
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
