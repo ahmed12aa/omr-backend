@@ -31,7 +31,7 @@ def scan_sheet():
         2. احسب عدد الإجابات الصحيحة والدرجة الكلية من 50.
         3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
         
-        أجب حصرياً بصيغة JSON صحيحة بالهيكل التالي فقط بدون أي نصوص أو علامات تفتيح إضافية:
+        أجب حصرياً بصيغة JSON صحيحة بالهيكل التالي فقط بدون أي نصوص أو علامات إضافية:
         {
           "status": "success",
           "student_id": "20261001",
@@ -43,7 +43,7 @@ def scan_sheet():
         """
 
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # تم التعديل لاختبار الموديل القياسي السريع
+            model='gemini-3.8-flash', # استخدام النموذج المطلوب الصحيح
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
@@ -63,7 +63,6 @@ def scan_sheet():
         return jsonify(result_json), 200
 
     except Exception as e:
-        # إرجاع تفاصيل الخطأ بوضوح لتجنب خطأ 502 العام
         return jsonify({'error': f'خطأ في المعالجة: {str(e)}'}), 500
 
 if __name__ == '__main__':
