@@ -1,20 +1,26 @@
 from flask import Flask, request, jsonify
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 import os
 import json
+from PIL import Image
+import io
 
 app = Flask(__name__)
 
-# تهيئة عميل Google GenAI
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# تهيئة مفتاح الـ API للذكاء الاصطناعي
+api_key = os.environ.get("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"status": "active", "message": "OMR Backend with Google AI is running!"})
+    return jsonify({"status": "active", "message": "OMR Backend with Stable Gemini AI is running!"})
 
 @app.route('/scan', methods=['POST'])
 def scan_sheet():
+    if not api_key:
+        return jsonify({'error': 'مفتاح GEMINI_API_KEY غير مُعرف في السيرفر'}), 500
+
     if 'image' not in request.files:
         return jsonify({'error': 'لم يتم إرسال أي صورة'}), 400
     
@@ -25,6 +31,12 @@ def scan_sheet():
         return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
+        # قراءة الصورة باستخدام PIL
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # استخدام النموذج القياسي المستقر السريع
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
         prompt = """
         هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
         1. استخرج رقم الطالب (إن وجد).
@@ -42,18 +54,10 @@ def scan_sheet():
         }
         """
 
-        response = client.models.generate_content(
-            model='gemini-3.8-flash', # استخدام النموذج المطلوب الصحيح
-            contents=[
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type='image/jpeg',
-                ),
-                prompt
-            ]
-        )
-
+        response = model.generate_content([image, prompt])
         text_response = response.text.strip()
+        
+        # تنظيف الرد واستخراج الـ JSON
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
         elif text_response.startswith("```"):
