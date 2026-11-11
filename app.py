@@ -6,7 +6,7 @@ import json
 
 app = Flask(__name__)
 
-# تهيئة عميل Google GenAI باستخدام المفتاح من متغيرات البيئة
+# تهيئة عميل Google GenAI
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.route('/', methods=['GET'])
@@ -25,26 +25,25 @@ def scan_sheet():
         return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # إرسال الصورة إلى النموذج الأحدث لاستخراج النتيجة
         prompt = """
         هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
         1. استخرج رقم الطالب (إن وجد).
         2. احسب عدد الإجابات الصحيحة والدرجة الكلية من 50.
         3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
         
-        يجب أن تكون الإجابة بصيغة JSON صالحة حصرياً بالشكل التالي بدون أي نصوص إضافية خارج الـ JSON:
+        أجب حصرياً بصيغة JSON صحيحة بالهيكل التالي فقط بدون أي نصوص أو علامات تفتيح إضافية:
         {
           "status": "success",
-          "student_id": "رقم الطالب المستخرج أو افتراضي",
-          "correct_answers": عدد صحيح,
+          "student_id": "20261001",
+          "correct_answers": 45,
           "total_questions": 50,
-          "score": الدرجة من 100,
-          "evaluation": "التقييم"
+          "score": 90,
+          "evaluation": "ممتاز"
         }
         """
 
         response = client.models.generate_content(
-            model='gemini-3.8-flash', # تم التحديث إلى النموذج الجديد المطلوب
+            model='gemini-2.5-flash', # تم التعديل لاختبار الموديل القياسي السريع
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
@@ -54,7 +53,6 @@ def scan_sheet():
             ]
         )
 
-        # تنظيف الرد واستخراج الـ JSON
         text_response = response.text.strip()
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
@@ -65,7 +63,8 @@ def scan_sheet():
         return jsonify(result_json), 200
 
     except Exception as e:
-        return jsonify({'error': f'حدث خطأ أثناء تحليل الذكاء الاصطناعي: {str(e)}'}), 500
+        # إرجاع تفاصيل الخطأ بوضوح لتجنب خطأ 502 العام
+        return jsonify({'error': f'خطأ في المعالجة: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
