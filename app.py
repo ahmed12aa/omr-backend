@@ -48,7 +48,7 @@ def scan_sheet():
 
         # استخدام أقوى نموذج معتمد للرؤية الدقيقة
         response = client.models.generate_content(
-            model='gemini-3.1-pro-preview',
+            model='gemini-3.8-flash',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
@@ -57,7 +57,6 @@ def scan_sheet():
                 prompt
             ]
         )
-
         text_response = response.text.strip()
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
