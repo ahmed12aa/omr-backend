@@ -6,12 +6,12 @@ import json
 
 app = Flask(__name__)
 
-# تهيئة العميل بالطريقة الحديثة المتوافقة مع أحدث إصدارات بايثون
+# تهيئة العميل باستخدام مفتاح Google AI Studio
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"status": "active", "message": "OMR Production Server is running successfully!"})
+    return jsonify({"status": "active", "message": "OMR Pro Production Server is running!"})
 
 @app.route('/scan', methods=['POST'])
 def scan_sheet():
@@ -25,14 +25,16 @@ def scan_sheet():
         return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # التوجيه الدقيق لاستخراج بيانات الـ OMR بالذكاء الاصطناعي
+        # التوجيه الذكي والمحسن لاستغلال قوة نموذج Pro في تحليل الـ OMR
         prompt = """
-        هذه صورة ورقة إجابة امتحان (OMR). قم بتحليل الصورة بدقة:
-        1. استخرج رقم الطالب (Student ID).
+        أنت نظام ذكاء اصطناعي خبير ومحترف في تصحيح أوراق الامتحانات (OMR).
+        قم بتحليل صورة ورقة الإجابة المرفقة بأعلى درجات الدقة:
+        1. استخرج رقم الطالب (Student ID) بدقة متناهية.
         2. احسب عدد الإجابات الصحيحة والدرجة النهائية من 50.
-        3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
+        3. انتبه للدوائر المظللة وتأكد من تقييمها بشكل صحيح (تجنب الأخطاء البصرية).
+        4. أعطِ تقييماً عاماً لمستوى الطالب.
         
-        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص أو علامات إضافية:
+        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص أو علامات تفتيح إضافية:
         {
           "status": "success",
           "student_id": "رقم الطالب المستخرج",
@@ -43,9 +45,9 @@ def scan_sheet():
         }
         """
 
-        # استخدام النموذج القياسي السريع لمعالجة الصورة مباشرة عبر البايتات
+        # الترقية هنا: استخدام نموذج Pro الأقوى والأكثر دقة في الرؤية البصرية
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model='gemini-1.5-pro',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
