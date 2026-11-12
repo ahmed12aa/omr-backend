@@ -46,8 +46,8 @@ def scan_sheet():
         """
 
         # الترقية هنا: استخدام نموذج Pro الأقوى والأكثر دقة في الرؤية البصرية
-        response = client.models.generate_content(
-            model='gemini-1.5-pro',
+      response = client.models.generate_content(
+            model='gemini-1.5-pro-latest', 
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
