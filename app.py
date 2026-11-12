@@ -11,7 +11,10 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({"status": "active", "message": "OMR Pro Production Server is running!"})
+    return jsonify({
+        "status": "active",
+        "message": "OMR Pro Production Server is running!"
+    })
 
 @app.route('/scan', methods=['POST'])
 def scan_sheet():
@@ -25,29 +28,27 @@ def scan_sheet():
         return jsonify({'error': 'الصورة فارغة'}), 400
 
     try:
-        # التوجيه الذكي والمحسن لاستغلال قوة نموذج Pro في تحليل الـ OMR
         prompt = """
-        أنت نظام ذكاء اصطناعي خبير ومحترف في تصحيح أوراق الامتحانات (OMR).
+        أنت نظام ذكاء اصطناعي خبير في تصحيح أوراق الامتحانات (OMR).
         قم بتحليل صورة ورقة الإجابة المرفقة بأعلى درجات الدقة:
-        1. استخرج رقم الطالب (Student ID) بدقة متناهية.
+        1. استخرج رقم الطالب (Student ID).
         2. احسب عدد الإجابات الصحيحة والدرجة النهائية من 50.
-        3. انتبه للدوائر المظللة وتأكد من تقييمها بشكل صحيح (تجنب الأخطاء البصرية).
-        4. أعطِ تقييماً عاماً لمستوى الطالب.
+        3. أعطِ تقييماً عاماً لمستوى الطالب (ممتاز، جيد جداً، جيد، راسب).
         
-        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص أو علامات تفتيح إضافية:
+        أجب حصرياً بصيغة JSON صحيحة ومتوافقة مع المعيار التالي بدون أي نصوص أو علامات إضافية:
         {
           "status": "success",
           "student_id": "رقم الطالب المستخرج",
-          "correct_answers": عدد صحيح,
+          "correct_answers": 45,
           "total_questions": 50,
-          "score": الدرجة,
-          "evaluation": "التقدير"
+          "score": 90,
+          "evaluation": "ممتاز"
         }
         """
 
-        # الترقية هنا: استخدام نموذج Pro الأقوى والأكثر دقة في الرؤية البصرية
-      response = client.models.generate_content(
-            model='gemini-1.5-pro-latest', 
+        # استخدام أقوى نموذج معتمد للرؤية الدقيقة
+        response = client.models.generate_content(
+            model='gemini-3.1-pro-preview',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
@@ -58,8 +59,6 @@ def scan_sheet():
         )
 
         text_response = response.text.strip()
-        
-        # تنظيف الاستجابة واستخراج الـ JSON بدقة
         if text_response.startswith("```json"):
             text_response = text_response[7:-3].strip()
         elif text_response.startswith("```"):
